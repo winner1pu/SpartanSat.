@@ -1,0 +1,1809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpartanSat — 2U CubeSat Intelligent Relay &amp; Data Hub | SJSU Aerospace</title>
+<meta name="description" content="SpartanSat is a student-built 2U CubeSat serving as the intelligent relay and data hub for volcanic exploration missions — from San José State University's Aerospace Engineering Department.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   SPARTANSAT — DESIGN TOKENS
+   ============================================================ */
+:root{
+  --void:        #050710;
+  --deep:        #090d1a;
+  --panel:       #0d1224;
+  --panel-2:     #11172c;
+  --line:        rgba(198,168,110,0.18);
+  --line-soft:   rgba(255,255,255,0.08);
+
+  --gold:        #c9a24d;
+  --gold-bright: #f0c766;
+  --gold-dim:    #8a7239;
+
+  --blue:        #4fa8ff;
+  --blue-glow:   rgba(79,168,255,0.35);
+  --blue-dim:    #2c6bb0;
+
+  --white:       #f4f6fb;
+  --grey:        #9aa3ba;
+  --grey-dim:    #616b85;
+
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body:    'Inter', sans-serif;
+  --font-mono:    'IBM Plex Mono', monospace;
+
+  --container: 1180px;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:auto;}
+body{
+  background:var(--void);
+  color:var(--white);
+  font-family:var(--font-body);
+  overflow-x:hidden;
+  line-height:1.5;
+}
+img{max-width:100%;display:block;}
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+ul{list-style:none;}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; scroll-behavior:auto !important;}
+}
+
+::selection{background:var(--gold-dim);color:var(--void);}
+
+/* focus visibility */
+a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible{
+  outline:2px solid var(--blue);
+  outline-offset:3px;
+  border-radius:2px;
+}
+
+/* ============================================================
+   BACKGROUND FIELD (persistent starfield + orbit rings)
+   ============================================================ */
+#bg-field{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -10%, rgba(79,168,255,0.10), transparent 60%),
+    radial-gradient(ellipse 90% 60% at 85% 110%, rgba(201,162,77,0.08), transparent 55%),
+    linear-gradient(180deg, #050710 0%, #070a16 40%, #050710 100%);
+}
+
+/* Background photo layer — currently empty. If a real space photo is added
+   (assets/bg-space.jpg), set its background-image below and it will
+   automatically get a slow, seamless Ken-Burns pan+zoom loop plus a blue
+   color grade so it matches the rest of the palette. */
+#bg-photo{
+  position:fixed; inset:-6%; z-index:0; pointer-events:none;
+  background-image:none; /* set to url('assets/bg-space.jpg') once a photo is added */
+  background-size:cover;
+  background-position:center;
+  filter:saturate(1.15) brightness(0.62) hue-rotate(-4deg);
+  animation: photo-kenburns 60s ease-in-out infinite alternate;
+}
+#bg-photo::after{
+  content:'';
+  position:absolute; inset:0;
+  background:
+    linear-gradient(180deg, rgba(5,7,16,0.55) 0%, rgba(5,7,16,0.25) 35%, rgba(5,7,16,0.55) 100%),
+    radial-gradient(ellipse 90% 70% at 50% 50%, rgba(30,60,120,0.15), rgba(5,7,16,0.55) 78%);
+}
+@keyframes photo-kenburns{
+  0%{   transform:scale(1.04) translate(0,0); }
+  50%{  transform:scale(1.11) translate(-1.2%,1%); }
+  100%{ transform:scale(1.06) translate(1%,-0.8%); }
+}
+
+/* Nebula clouds — layered, painterly color field inspired by real JWST/Hubble
+   nebula photography (deep-blue skymap palette with amber/teal accents).
+   Built from many overlapping soft shapes rather than simple circles so it
+   reads as an organic cloud field, not a flat gradient. */
+#nebula-field{
+  position:fixed; inset:-15%; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(ellipse 38% 30% at 14% 18%, rgba(64,150,255,0.26), transparent 62%),
+    radial-gradient(ellipse 30% 24% at 34% 8%, rgba(94,178,255,0.18), transparent 60%),
+    radial-gradient(ellipse 34% 26% at 84% 16%, rgba(56,180,230,0.20), transparent 60%),
+    radial-gradient(ellipse 42% 32% at 68% 6%, rgba(80,110,220,0.16), transparent 62%),
+    radial-gradient(ellipse 30% 24% at 80% 70%, rgba(64,150,255,0.16), transparent 60%),
+    radial-gradient(ellipse 24% 20% at 94% 58%, rgba(46,199,201,0.13), transparent 58%),
+    radial-gradient(ellipse 32% 26% at 22% 82%, rgba(70,140,255,0.18), transparent 60%),
+    radial-gradient(ellipse 20% 16% at 42% 92%, rgba(240,199,102,0.07), transparent 58%),
+    radial-gradient(ellipse 38% 30% at 52% 46%, rgba(56,180,230,0.08), transparent 62%);
+  filter:blur(44px);
+  animation: nebula-drift-a 52s ease-in-out infinite alternate;
+  opacity:0.95;
+}
+#nebula-field-2{
+  position:fixed; inset:-15%; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(ellipse 30% 24% at 68% 34%, rgba(64,150,255,0.14), transparent 60%),
+    radial-gradient(ellipse 26% 22% at 10% 58%, rgba(80,110,220,0.12), transparent 60%),
+    radial-gradient(ellipse 34% 28% at 48% 86%, rgba(46,199,201,0.10), transparent 60%),
+    radial-gradient(ellipse 20% 16% at 88% 88%, rgba(224,150,80,0.06), transparent 58%);
+  filter:blur(58px);
+  animation: nebula-drift-b 68s ease-in-out infinite alternate;
+  opacity:0.85;
+  mix-blend-mode:screen;
+}
+/* Fine grain — a subtle photographic texture over the nebula so it reads
+   less like flat CSS gradients and more like a captured image. */
+#grain-field{
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  opacity:0.05;
+  mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+@keyframes nebula-drift-a{
+  0%{   transform:translate(0,0) scale(1) rotate(0deg); }
+  33%{  transform:translate(-2.5%,1.8%) scale(1.05) rotate(1deg); }
+  66%{  transform:translate(1.8%,-1.5%) scale(1.03) rotate(-0.6deg); }
+  100%{ transform:translate(2.2%,2.4%) scale(1.07) rotate(0.8deg); }
+}
+@keyframes nebula-drift-b{
+  0%{   transform:translate(0,0) scale(1.02); }
+  50%{  transform:translate(2%,-2.2%) scale(1.08); }
+  100%{ transform:translate(-1.6%,1.8%) scale(1); }
+}
+
+/* Earth glow — curved horizon glow low in the viewport, echoes the infographic */
+#earth-glow{
+  position:fixed; left:50%; bottom:-62vw; z-index:0; pointer-events:none;
+  width:180vw; height:180vw;
+  transform:translateX(-50%);
+  border-radius:50%;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(79,168,255,0.16) 0%, rgba(79,168,255,0.07) 18%, rgba(10,14,28,0.9) 34%, transparent 45%);
+  box-shadow:0 -40px 140px -20px rgba(79,168,255,0.12);
+}
+
+/* Mars glow — distant rust-toned planet limb, nods to the mission's Olympus Mons target */
+#mars-glow{
+  position:fixed; top:-26vw; right:-20vw; z-index:0; pointer-events:none;
+  width:56vw; height:56vw; min-width:420px; min-height:420px;
+  border-radius:50%;
+  background:
+    radial-gradient(circle at 38% 40%, rgba(224,120,74,0.20) 0%, rgba(168,74,44,0.13) 30%, rgba(90,40,30,0.05) 52%, transparent 68%);
+  filter:blur(2px);
+  animation: mars-pulse 16s ease-in-out infinite;
+}
+#mars-glow::before{
+  content:'';
+  position:absolute; inset:6%;
+  border-radius:50%;
+  border:1px solid rgba(224,120,74,0.10);
+}
+@keyframes mars-pulse{
+  0%,100%{ opacity:0.85; }
+  50%{ opacity:1; }
+}
+
+#bg-photo,#nebula-field,#nebula-field-2,#earth-glow,#mars-glow,#grain-field,#vignette,.orbit-ring,#stars-canvas,#shooting-canvas{will-change:transform; transform:translateZ(0);}
+/* Vignette — subtle depth toward the edges, reads more like a photographed frame */
+#vignette{
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  background:radial-gradient(ellipse 80% 70% at 50% 40%, transparent 55%, rgba(3,4,9,0.55) 100%);
+}
+
+#stars-canvas{position:fixed; inset:0; z-index:0; pointer-events:none;}
+#shooting-canvas{position:fixed; inset:0; z-index:1; pointer-events:none;}
+
+.orbit-ring{
+  position:fixed;
+  border:1px solid rgba(201,162,77,0.10);
+  border-radius:50%;
+  pointer-events:none;
+  z-index:0;
+}
+.orbit-ring.r1{width:1400px;height:1400px; top:-500px; left:50%; margin-left:-700px; animation: spin-slow 180s linear infinite;}
+.orbit-ring.r2{width:2200px;height:2200px; top:-900px; left:50%; margin-left:-1100px; border-color:rgba(79,168,255,0.08); animation: spin-slow-rev 260s linear infinite;}
+@keyframes spin-slow{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+@keyframes spin-slow-rev{ from{transform:rotate(360deg);} to{transform:rotate(0deg);} }
+
+/* ============================================================
+   LAYOUT HELPERS
+   ============================================================ */
+.wrap{max-width:var(--container); margin:0 auto; padding:0 32px; position:relative; z-index:2;}
+section{position:relative; z-index:2;}
+
+.eyebrow{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.22em;
+  text-transform:uppercase;
+  color:var(--gold);
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:18px;
+}
+.eyebrow::before{
+  content:'';
+  width:22px; height:1px;
+  background:var(--gold);
+  display:inline-block;
+}
+
+.section-head{max-width:640px; margin-bottom:56px;}
+.section-head h2{
+  font-family:var(--font-display);
+  font-weight:600;
+  font-size:clamp(28px,4vw,44px);
+  letter-spacing:-0.01em;
+  margin-bottom:14px;
+}
+.section-head p{color:var(--grey); font-size:16px; line-height:1.7;}
+
+.hairline{
+  height:1px;
+  background:linear-gradient(90deg, transparent, var(--line) 20%, var(--line) 80%, transparent);
+}
+
+.reveal{
+  opacity:0;
+  transform:translateY(28px);
+  transition:opacity 0.45s cubic-bezier(.16,.8,.24,1), transform 0.45s cubic-bezier(.16,.8,.24,1);
+}
+.reveal.in{opacity:1; transform:translateY(0);}
+
+/* ============================================================
+   NAV
+   ============================================================ */
+#site-nav{
+  position:fixed; top:0; left:0; right:0; z-index:100;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:20px 32px;
+  backdrop-filter:blur(14px);
+  background:rgba(5,7,16,0.55);
+  border-bottom:1px solid transparent;
+  transition:border-color 0.4s ease, background 0.4s ease;
+}
+#site-nav.scrolled{
+  border-bottom-color:var(--line-soft);
+  background:rgba(5,7,16,0.82);
+}
+.nav-brand{
+  display:flex; align-items:center; gap:10px;
+  font-family:var(--font-display); font-weight:600; font-size:15px;
+  letter-spacing:0.06em;
+}
+/* Logo slot — drop a real logo file in and swap the placeholder for an
+   <img src="assets/logo.png" alt="SpartanSat logo"> inside #logoSlot. */
+#logoSlot{
+  width:34px; height:34px;
+  border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+  overflow:hidden;
+}
+#logoSlot img{width:100%; height:100%; object-fit:contain;}
+#logoSlot.placeholder{
+  border:1px dashed rgba(154,163,186,0.4);
+  color:var(--grey-dim);
+  font-family:var(--font-mono);
+  font-size:8px;
+  letter-spacing:0.02em;
+  text-align:center;
+  line-height:1.2;
+  transition:border-color 0.25s ease, color 0.25s ease;
+}
+#logoSlot.placeholder:hover{ border-color:var(--gold); color:var(--gold-bright); }
+.nav-brand .mark{
+  width:26px;height:26px;
+  border:1px solid var(--gold);
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;
+}
+.nav-brand .mark::before{
+  content:'';
+  width:6px;height:6px;
+  background:var(--gold-bright);
+  border-radius:50%;
+  box-shadow:0 0 8px 2px var(--blue-glow);
+}
+.nav-links{display:flex; gap:30px; align-items:center;}
+.nav-links a{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:var(--grey);
+  transition:color 0.25s ease;
+  position:relative;
+}
+.nav-links a:hover{color:var(--white);}
+.nav-links a::after{
+  content:'';
+  position:absolute; left:0; bottom:-6px;
+  width:0; height:1px; background:var(--gold);
+  transition:width 0.25s ease;
+}
+.nav-links a:hover::after{width:100%;}
+.nav-cta{
+  font-family:var(--font-mono);
+  font-size:12px; letter-spacing:0.08em; text-transform:uppercase;
+  border:1px solid var(--line);
+  padding:9px 16px;
+  border-radius:3px;
+  color:var(--gold-bright);
+  transition:all 0.25s ease;
+}
+.nav-cta:hover{border-color:var(--gold); background:rgba(201,162,77,0.08); box-shadow:0 0 18px rgba(201,162,77,0.15);}
+.nav-toggle{display:none;}
+
+@media (max-width:900px){
+  .nav-links{
+    position:fixed; top:64px; right:0; left:0;
+    flex-direction:column; align-items:flex-start; gap:0;
+    background:rgba(6,9,20,0.98);
+    border-bottom:1px solid var(--line-soft);
+    padding:8px 32px 20px;
+    transform:translateY(-8px);
+    opacity:0; visibility:hidden;
+    transition:all 0.3s ease;
+  }
+  .nav-links.open{transform:translateY(0); opacity:1; visibility:visible;}
+  .nav-links a{padding:12px 0; width:100%; border-bottom:1px solid var(--line-soft);}
+  .nav-toggle{
+    display:flex; flex-direction:column; gap:5px; padding:6px;
+  }
+  .nav-toggle span{width:20px;height:1px;background:var(--white);}
+  .nav-cta{display:none;}
+}
+
+/* ============================================================
+   HERO
+   ============================================================ */
+#hero{
+  min-height:100vh;
+  position:relative;
+  overflow:hidden;
+}
+/* Hero background photo — the SpartanSat key art, with a slow seamless
+   Ken-Burns loop and a bottom fade so it blends into the section below. */
+#hero-bg{
+  position:absolute; inset:0; z-index:0;
+  background-image:url('assets/hero-bg.webp');
+  background-size:cover;
+  background-position:center 42%;
+  animation: hero-bg-loop 34s ease-in-out infinite alternate;
+}
+#hero-bg::after{
+  content:'';
+  position:absolute; inset:0;
+  background:
+    linear-gradient(180deg, rgba(5,7,16,0.15) 0%, rgba(5,7,16,0) 30%, rgba(5,7,16,0.35) 72%, var(--void) 100%),
+    radial-gradient(ellipse 90% 60% at 50% 100%, rgba(5,7,16,0.5), transparent 60%);
+}
+@keyframes hero-bg-loop{
+  0%{   transform:scale(1.05) translate(0,0); }
+  50%{  transform:scale(1.10) translate(-0.8%,0.6%); }
+  100%{ transform:scale(1.07) translate(0.6%,-0.5%); }
+}
+#hero-shooting-canvas{
+  position:absolute; inset:0; z-index:1; pointer-events:none;
+}
+.hero-content{
+  position:relative; z-index:2;
+  min-height:100vh;
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
+  text-align:center;
+  padding:140px 24px 120px;
+}
+.hero-tag{
+  font-family:var(--font-mono);
+  font-size:12px; letter-spacing:0.28em; text-transform:uppercase;
+  color:var(--blue);
+  margin-bottom:26px;
+  opacity:0;
+  animation:fade-up 1s ease forwards 0.2s;
+}
+.hero-tag span{color:var(--grey-dim); margin:0 8px;}
+
+#hero h1{
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:clamp(52px,11vw,132px);
+  letter-spacing:-0.01em;
+  line-height:0.95;
+  background:linear-gradient(180deg,#ffffff 0%, #d9dfef 55%, #9aa8c9 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  opacity:0;
+  animation:fade-up 1.1s ease forwards 0.4s;
+}
+.hero-sub{
+  font-family:var(--font-display);
+  font-weight:500;
+  font-size:clamp(15px,2vw,20px);
+  color:var(--gold-bright);
+  letter-spacing:0.02em;
+  margin-top:18px;
+  opacity:0;
+  animation:fade-up 1.1s ease forwards 0.6s;
+}
+.hero-desc{
+  max-width:560px;
+  margin:26px auto 0;
+  color:var(--grey);
+  font-size:16px;
+  line-height:1.75;
+  opacity:0;
+  animation:fade-up 1.1s ease forwards 0.75s;
+}
+@keyframes fade-up{
+  from{opacity:0; transform:translateY(18px);}
+  to{opacity:1; transform:translateY(0);}
+}
+
+.hero-cta{
+  margin-top:0;
+  display:inline-flex; align-items:center; gap:12px;
+  padding:16px 30px;
+  border-radius:999px;
+  border:1px solid rgba(201,162,77,0.5);
+  background:linear-gradient(180deg, rgba(201,162,77,0.14), rgba(201,162,77,0.02));
+  font-family:var(--font-mono);
+  font-size:13px;
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+  color:var(--gold-bright);
+  position:relative;
+  opacity:0;
+  animation:fade-up 1.1s ease forwards 0.5s;
+  transition:transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  box-shadow:0 0 0 rgba(201,162,77,0);
+  backdrop-filter:blur(6px);
+}
+.hero-cta:hover{
+  transform:translateY(-2px);
+  border-color:var(--gold);
+  box-shadow:0 8px 34px rgba(201,162,77,0.22), 0 0 24px rgba(79,168,255,0.18);
+}
+.hero-cta .dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--gold-bright);
+  box-shadow:0 0 10px 3px var(--blue-glow);
+  animation:pulse-dot 2.2s ease-in-out infinite;
+}
+@keyframes pulse-dot{
+  0%,100%{opacity:1; transform:scale(1);}
+  50%{opacity:0.5; transform:scale(0.8);}
+}
+
+.heritage-strip{
+  margin-top:30px;
+  display:inline-flex; align-items:center; gap:8px;
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.04em;
+  color:var(--grey-dim);
+  opacity:0;
+  animation:fade-up 1.1s ease forwards 1.1s;
+}
+.heritage-strip svg{width:13px;height:13px; color:var(--gold-dim); flex-shrink:0;}
+
+.hero-telemetry{
+  margin-top:40px;
+  display:flex; justify-content:center; gap:38px; flex-wrap:wrap;
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--grey-dim);
+  letter-spacing:0.05em;
+  opacity:0;
+  animation:fade-up 1.2s ease forwards 0.85s;
+}
+.hero-telemetry b{color:var(--grey); font-weight:500;}
+@media (max-width:700px){ .hero-telemetry{display:none;} }
+
+.scroll-cue{
+  position:absolute; bottom:36px; left:50%; transform:translateX(-50%);
+  width:1px; height:60px;
+  background:linear-gradient(180deg, var(--gold), transparent);
+}
+.scroll-cue::after{
+  content:'';
+  position:absolute; top:0; left:-2px;
+  width:5px;height:5px;border-radius:50%;
+  background:var(--gold-bright);
+  animation:cue-drop 2.4s ease-in-out infinite;
+}
+@keyframes cue-drop{
+  0%{top:0; opacity:1;}
+  90%{opacity:0.3;}
+  100%{top:56px; opacity:0;}
+}
+
+/* ============================================================
+   INFOGRAPHIC SECTION
+   ============================================================ */
+#infographic{padding:120px 0 100px;}
+.info-grid{
+  display:grid;
+  grid-template-columns:1.5fr 1fr;
+  gap:44px;
+  align-items:start;
+}
+.info-image-wrap{
+  position:relative;
+  border-radius:14px;
+  overflow:hidden;
+  border:1px solid var(--line);
+  box-shadow:0 30px 90px -30px rgba(0,0,0,0.7), 0 0 60px -20px rgba(79,168,255,0.15);
+}
+.info-image-wrap img{
+  width:100%; display:block;
+}
+.info-image-wrap::after{
+  content:'';
+  position:absolute; inset:0;
+  background:linear-gradient(180deg, rgba(79,168,255,0.06), transparent 30%, transparent 80%, rgba(5,7,16,0.25));
+  pointer-events:none;
+}
+.info-frame-corner{
+  position:absolute; width:22px; height:22px;
+  border-color:var(--gold); z-index:2; pointer-events:none;
+}
+.info-frame-corner.tl{top:12px;left:12px;border-top:2px solid;border-left:2px solid;}
+.info-frame-corner.br{bottom:12px;right:12px;border-bottom:2px solid;border-right:2px solid;}
+
+.glass-panel{
+  background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+  border:1px solid var(--line-soft);
+  border-radius:14px;
+  padding:30px 28px;
+  backdrop-filter:blur(10px);
+  position:relative;
+  overflow:hidden;
+}
+.glass-panel::before{
+  content:'';
+  position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity:0.6;
+}
+.glass-panel h3{
+  font-family:var(--font-display);
+  font-size:19px; font-weight:600;
+  margin-bottom:14px;
+  color:var(--gold-bright);
+}
+.glass-panel .editable{
+  min-height:130px;
+  color:var(--grey);
+  font-size:14.5px;
+  line-height:1.8;
+  border:1px dashed rgba(154,163,186,0.3);
+  border-radius:8px;
+  padding:14px;
+  outline:none;
+}
+.glass-panel .editable:empty::before{
+  content:attr(data-placeholder);
+  color:var(--grey-dim);
+  font-style:italic;
+}
+.glass-panel .editable:focus{border-color:var(--blue); background:rgba(79,168,255,0.04);}
+.edit-hint{
+  margin-top:12px;
+  font-family:var(--font-mono);
+  font-size:10.5px;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
+  color:var(--grey-dim);
+  display:flex; align-items:center; gap:6px;
+}
+.edit-hint svg{width:12px;height:12px;opacity:0.7;}
+
+@media (max-width:900px){
+  .info-grid{grid-template-columns:1fr;}
+}
+
+/* ============================================================
+   MISSION STORY (flow)
+   ============================================================ */
+#story{padding:100px 0;}
+.flow-track{
+  display:flex;
+  align-items:stretch;
+  gap:0;
+  overflow-x:auto;
+  padding:20px 4px 30px;
+  scrollbar-width:thin;
+}
+.flow-node{
+  flex:0 0 210px;
+  display:flex; flex-direction:column; align-items:center; text-align:center;
+  padding:0 8px;
+}
+.flow-card{
+  width:100%;
+  background:var(--panel);
+  border:1px solid var(--line-soft);
+  border-radius:12px;
+  padding:26px 18px 22px;
+  position:relative;
+  transition:border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+.flow-card:hover{
+  border-color:var(--gold);
+  transform:translateY(-6px);
+  box-shadow:0 18px 40px -18px rgba(201,162,77,0.3);
+}
+.flow-card .icon{
+  width:44px;height:44px;
+  margin:0 auto 16px;
+  border-radius:50%;
+  border:1px solid var(--blue-dim);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--blue);
+  box-shadow:0 0 20px -4px var(--blue-glow) inset;
+}
+.flow-card .icon svg{width:22px;height:22px;}
+.flow-card h4{font-family:var(--font-display); font-size:15px; font-weight:600; margin-bottom:8px;}
+.flow-card p{font-size:12.5px; color:var(--grey-dim); line-height:1.6;}
+.flow-node .label{
+  margin-top:12px;
+  font-family:var(--font-mono);
+  font-size:10.5px;
+  letter-spacing:0.1em;
+  color:var(--gold-dim);
+  text-transform:uppercase;
+}
+.flow-connector{
+  flex:0 0 46px;
+  display:flex; align-items:center; justify-content:center;
+  position:relative;
+  top:38px;
+}
+.flow-connector svg{width:100%;height:14px; color:var(--gold-dim);}
+.flow-connector .arrow-line{
+  stroke-dasharray:6 5;
+  animation:dash-move 1.6s linear infinite;
+}
+@keyframes dash-move{ to{ stroke-dashoffset:-22; } }
+
+@media (max-width:820px){
+  .flow-track{flex-direction:column; align-items:stretch;}
+  .flow-node{flex:none; width:100%; margin-bottom:6px;}
+  .flow-connector{transform:rotate(90deg); top:0; margin:-6px 0;}
+}
+
+/* ============================================================
+   TEAM
+   ============================================================ */
+#team{padding:100px 0;}
+.team-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(240px,1fr));
+  gap:22px;
+}
+.team-card{
+  background:var(--panel);
+  border:1px solid var(--line-soft);
+  border-radius:14px;
+  padding:28px 22px;
+  cursor:pointer;
+  transition:transform 0.35s cubic-bezier(.2,.8,.3,1), border-color 0.35s ease, box-shadow 0.35s ease;
+  position:relative;
+  overflow:hidden;
+}
+.team-card:hover{
+  transform:translateY(-8px);
+  border-color:var(--gold);
+  box-shadow:0 22px 50px -20px rgba(0,0,0,0.6), 0 0 30px -10px rgba(201,162,77,0.25);
+}
+.team-avatar{
+  width:58px;height:58px;
+  border-radius:50%;
+  border:1px solid var(--line);
+  background:linear-gradient(135deg, rgba(79,168,255,0.18), rgba(201,162,77,0.14));
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-display); font-weight:600; font-size:18px;
+  color:var(--gold-bright);
+  margin-bottom:18px;
+}
+.team-card h4{font-family:var(--font-display); font-size:17px; font-weight:600; margin-bottom:3px;}
+.team-card .role{font-family:var(--font-mono); font-size:11px; letter-spacing:0.06em; color:var(--blue); text-transform:uppercase; margin-bottom:14px;}
+.team-card .bio{font-size:13.5px; color:var(--grey-dim); line-height:1.6;}
+.team-more{
+  max-height:0; overflow:hidden;
+  transition:max-height 0.4s ease, margin-top 0.4s ease;
+}
+.team-card.open .team-more{max-height:220px; margin-top:14px;}
+.team-more .contrib-label{
+  font-family:var(--font-mono); font-size:10px; letter-spacing:0.08em; color:var(--gold-dim); text-transform:uppercase; margin-bottom:6px;
+}
+.team-more p{font-size:13px; color:var(--grey-dim); line-height:1.6; margin-bottom:14px;}
+.team-links{display:flex; gap:10px;}
+.team-links a{
+  font-family:var(--font-mono); font-size:10.5px;
+  border:1px solid var(--line); border-radius:20px;
+  padding:6px 12px;
+  color:var(--grey);
+  transition:all 0.25s ease;
+}
+.team-links a:hover{color:var(--gold-bright); border-color:var(--gold);}
+.team-card .expand-cue{
+  position:absolute; top:22px; right:22px;
+  font-family:var(--font-mono); font-size:16px; color:var(--grey-dim);
+  transition:transform 0.35s ease;
+}
+.team-card.open .expand-cue{transform:rotate(45deg); color:var(--gold);}
+
+/* ============================================================
+   ROADMAP
+   ============================================================ */
+#roadmap{padding:100px 0;}
+.phase-list{display:flex; flex-direction:column; gap:14px;}
+.phase-card{
+  background:var(--panel);
+  border:1px solid var(--line-soft);
+  border-radius:12px;
+  overflow:hidden;
+  transition:border-color 0.3s ease;
+}
+.phase-card.open{border-color:var(--gold);}
+.phase-head{
+  display:flex; align-items:center; gap:20px;
+  padding:22px 26px;
+  cursor:pointer;
+}
+.phase-num{
+  font-family:var(--font-mono);
+  font-size:13px;
+  color:var(--gold);
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:5px 10px;
+  flex-shrink:0;
+}
+.phase-head h4{font-family:var(--font-display); font-size:17px; font-weight:600; flex:1;}
+.phase-status{
+  font-family:var(--font-mono); font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase;
+  padding:4px 10px; border-radius:20px; flex-shrink:0;
+}
+.phase-status.done{color:#7ee0a8; border:1px solid rgba(126,224,168,0.35); background:rgba(126,224,168,0.06);}
+.phase-status.active{color:var(--blue); border:1px solid rgba(79,168,255,0.4); background:rgba(79,168,255,0.07);}
+.phase-status.upcoming{color:var(--grey-dim); border:1px solid var(--line-soft);}
+.phase-chevron{
+  font-family:var(--font-mono); color:var(--grey-dim); transition:transform 0.35s ease; flex-shrink:0;
+}
+.phase-card.open .phase-chevron{transform:rotate(180deg); color:var(--gold);}
+.phase-body{
+  max-height:0; overflow:hidden;
+  transition:max-height 0.45s ease;
+}
+.phase-card.open .phase-body{max-height:420px;}
+.phase-body-inner{
+  padding:0 26px 28px;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:24px;
+}
+.phase-body-inner .col span{
+  display:block;
+  font-family:var(--font-mono); font-size:10px; letter-spacing:0.08em; text-transform:uppercase;
+  color:var(--gold-dim); margin-bottom:8px;
+}
+.phase-body-inner .col p, .phase-body-inner .col li{font-size:13.5px; color:var(--grey); line-height:1.65;}
+.phase-body-inner .col ul li{margin-bottom:4px; padding-left:12px; position:relative;}
+.phase-body-inner .col ul li::before{content:'—'; position:absolute; left:0; color:var(--grey-dim);}
+@media (max-width:760px){
+  .phase-body-inner{grid-template-columns:1fr; gap:16px;}
+  .phase-head{flex-wrap:wrap;}
+}
+
+/* ============================================================
+   SYSTEMS
+   ============================================================ */
+#systems{padding:100px 0;}
+.sys-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(220px,1fr));
+  gap:18px;
+}
+.sys-card{
+  background:var(--panel);
+  border:1px solid var(--line-soft);
+  border-radius:12px;
+  padding:24px 20px;
+  cursor:pointer;
+  transition:border-color 0.3s ease, background 0.3s ease;
+  position:relative;
+}
+.sys-card:hover{border-color:var(--blue-dim); background:var(--panel-2);}
+.sys-card .sys-icon{
+  width:38px;height:38px;
+  border-radius:8px;
+  border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--gold-bright);
+  margin-bottom:16px;
+}
+.sys-card .sys-icon svg{width:19px;height:19px;}
+.sys-card h4{font-family:var(--font-display); font-size:15px; font-weight:600; margin-bottom:6px;}
+.sys-card .teaser{font-size:12.5px; color:var(--grey-dim); line-height:1.55;}
+
+/* systems modal */
+#sys-modal{
+  position:fixed; inset:0; z-index:200;
+  display:none;
+  align-items:center; justify-content:center;
+  padding:24px;
+}
+#sys-modal.open{display:flex;}
+#sys-modal .backdrop{
+  position:absolute; inset:0;
+  background:rgba(4,6,12,0.75);
+  backdrop-filter:blur(6px);
+}
+#sys-modal .modal-box{
+  position:relative; z-index:2;
+  max-width:560px; width:100%;
+  background:var(--panel-2);
+  border:1px solid var(--gold-dim);
+  border-radius:16px;
+  padding:36px;
+  box-shadow:0 40px 100px -30px rgba(0,0,0,0.8), 0 0 60px -20px rgba(79,168,255,0.2);
+  animation:modal-in 0.35s cubic-bezier(.2,.8,.3,1);
+}
+@keyframes modal-in{
+  from{opacity:0; transform:translateY(16px) scale(0.98);}
+  to{opacity:1; transform:translateY(0) scale(1);}
+}
+#sys-modal .modal-close{
+  position:absolute; top:18px; right:18px;
+  font-family:var(--font-mono); font-size:20px; color:var(--grey-dim);
+  width:32px; height:32px; display:flex; align-items:center; justify-content:center;
+  border:1px solid var(--line-soft); border-radius:50%;
+  transition:all 0.25s ease;
+}
+#sys-modal .modal-close:hover{color:var(--gold); border-color:var(--gold);}
+#sys-modal .modal-icon{
+  width:48px;height:48px; border-radius:10px;
+  border:1px solid var(--line); color:var(--gold-bright);
+  display:flex;align-items:center;justify-content:center; margin-bottom:20px;
+}
+#sys-modal .modal-icon svg{width:24px;height:24px;}
+#sys-modal h3{font-family:var(--font-display); font-size:24px; font-weight:600; margin-bottom:14px;}
+#sys-modal p{color:var(--grey); font-size:14.5px; line-height:1.75; margin-bottom:16px;}
+#sys-modal .spec-row{display:flex; justify-content:space-between; padding:10px 0; border-top:1px solid var(--line-soft); font-family:var(--font-mono); font-size:12px;}
+#sys-modal .spec-row span:first-child{color:var(--grey-dim); text-transform:uppercase; letter-spacing:0.05em;}
+#sys-modal .spec-row span:last-child{color:var(--white);}
+
+/* ============================================================
+   UPDATES
+   ============================================================ */
+#updates{padding:100px 0;}
+.updates-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+  gap:20px;
+}
+.update-card{
+  background:var(--panel);
+  border:1px solid var(--line-soft);
+  border-radius:12px;
+  padding:24px;
+  position:relative;
+}
+.update-card .u-date{
+  font-family:var(--font-mono); font-size:11px; color:var(--blue); letter-spacing:0.05em; margin-bottom:10px;
+}
+.update-card h4{font-family:var(--font-display); font-size:16px; font-weight:600; margin-bottom:10px;}
+.update-card .u-body{
+  font-size:13.5px; color:var(--grey-dim); line-height:1.65;
+  outline:none; min-height:60px;
+}
+.update-card .u-body:empty::before{content:attr(data-placeholder); color:var(--grey-dim); font-style:italic;}
+.update-card .u-tag{
+  display:inline-block; margin-top:14px;
+  font-family:var(--font-mono); font-size:10px; letter-spacing:0.08em; text-transform:uppercase;
+  color:var(--gold-dim); border:1px solid var(--line); border-radius:20px; padding:4px 10px;
+}
+.add-update{
+  border:1px dashed var(--line);
+  border-radius:12px;
+  display:flex; align-items:center; justify-content:center;
+  min-height:150px;
+  color:var(--grey-dim);
+  font-family:var(--font-mono); font-size:12px; letter-spacing:0.06em; text-transform:uppercase;
+  transition:all 0.25s ease;
+}
+.add-update:hover{border-color:var(--gold); color:var(--gold-bright);}
+
+/* ============================================================
+   CONTACT
+   ============================================================ */
+#contact{padding:100px 0 140px;}
+.contact-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:60px;
+}
+.contact-info .contact-field:first-child{margin-top:4px;}
+.contact-info h3{font-family:var(--font-display); font-size:22px; font-weight:600; margin-bottom:16px;}
+.contact-info p{color:var(--grey); font-size:14.5px; line-height:1.8; margin-bottom:28px;}
+.contact-field{margin-bottom:22px;}
+.contact-field span{
+  display:block; font-family:var(--font-mono); font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase;
+  color:var(--grey-dim); margin-bottom:8px;
+}
+.contact-field a, .contact-field div{font-size:14.5px; color:var(--white);}
+.contact-field .editable{
+  min-height:52px;
+  color:var(--grey);
+  font-size:14.5px;
+  border:1px dashed rgba(154,163,186,0.3);
+  border-radius:8px;
+  padding:12px 14px;
+  outline:none;
+}
+.contact-field .editable:empty::before{
+  content:attr(data-placeholder);
+  color:var(--grey-dim);
+  font-style:italic;
+}
+.contact-field .editable:focus{border-color:var(--blue); background:rgba(79,168,255,0.04);}
+.social-row{display:flex; gap:12px; margin-top:24px;}
+.social-row a{
+  width:38px;height:38px; border-radius:50%; border:1px solid var(--line);
+  display:flex; align-items:center; justify-content:center;
+  color:var(--grey); transition:all 0.25s ease;
+}
+.social-row a:hover{border-color:var(--gold); color:var(--gold-bright);}
+.social-row svg{width:16px;height:16px;}
+
+.contact-form{
+  background:var(--panel);
+  border:1px solid var(--line-soft);
+  border-radius:14px;
+  padding:32px;
+}
+.form-row{margin-bottom:18px;}
+.form-row label{
+  display:block; font-family:var(--font-mono); font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase;
+  color:var(--grey-dim); margin-bottom:8px;
+}
+.form-row input, .form-row textarea{
+  width:100%;
+  background:rgba(255,255,255,0.02);
+  border:1px solid var(--line-soft);
+  border-radius:8px;
+  padding:12px 14px;
+  color:var(--white);
+  font-family:var(--font-body);
+  font-size:14px;
+  transition:border-color 0.25s ease, background 0.25s ease;
+}
+.form-row input:focus, .form-row textarea:focus{
+  border-color:var(--blue);
+  background:rgba(79,168,255,0.04);
+  outline:none;
+}
+.form-row textarea{resize:vertical; min-height:110px;}
+.form-submit{
+  width:100%;
+  padding:14px;
+  border-radius:8px;
+  background:linear-gradient(180deg, var(--gold-bright), var(--gold));
+  color:#1a1206;
+  font-family:var(--font-mono);
+  font-weight:600;
+  font-size:13px;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  transition:transform 0.25s ease, box-shadow 0.25s ease;
+}
+.form-submit:hover{transform:translateY(-2px); box-shadow:0 10px 30px -8px rgba(201,162,77,0.5);}
+.form-note{margin-top:14px; font-size:12px; color:var(--grey-dim); text-align:center;}
+
+@media (max-width:860px){ .contact-grid{grid-template-columns:1fr; gap:40px;} }
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+footer{
+  border-top:1px solid var(--line-soft);
+  padding:36px 0;
+  position:relative; z-index:2;
+}
+.footer-inner{
+  display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;
+}
+.footer-inner .f-left{
+  font-family:var(--font-mono); font-size:11.5px; color:var(--grey-dim);
+}
+.footer-inner .f-right{
+  font-family:var(--font-mono); font-size:11px; color:var(--grey-dim); letter-spacing:0.05em;
+}
+.footer-inner .f-right a{color:var(--grey); transition:color 0.25s ease;}
+.footer-inner .f-right a:hover{color:var(--gold-bright);}
+
+/* ============================================================
+   MISC
+   ============================================================ */
+.mono-small{font-family:var(--font-mono); font-size:11px; letter-spacing:0.05em;}
+</style>
+</head>
+<body>
+
+<!-- background layers -->
+<div id="bg-field"></div>
+<div id="bg-photo"></div>
+<div id="nebula-field"></div>
+<div id="nebula-field-2"></div>
+<div id="grain-field"></div>
+<div id="mars-glow"></div>
+<div id="earth-glow"></div>
+<canvas id="stars-canvas"></canvas>
+<canvas id="shooting-canvas"></canvas>
+<div class="orbit-ring r1"></div>
+<div class="orbit-ring r2"></div>
+<div id="vignette"></div>
+
+<!-- ============================================================
+     NAV
+     ============================================================ -->
+<nav id="site-nav">
+  <a href="#hero" class="nav-brand">
+    <span id="logoSlot" class="placeholder">+<br>LOGO</span>
+    SPARTANSAT
+  </a>
+  <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="navLinks">
+    <a href="#infographic">Mission</a>
+    <a href="#story">Relay</a>
+    <a href="#team">Team</a>
+    <a href="#roadmap">Roadmap</a>
+    <a href="#systems">Systems</a>
+    <a href="#updates">Updates</a>
+    <a href="#contact">Contact</a>
+  </div>
+</nav>
+
+<!-- ============================================================
+     HERO
+     ============================================================ -->
+<section id="hero">
+  <div id="hero-bg"></div>
+  <canvas id="hero-shooting-canvas"></canvas>
+  <div class="hero-content">
+    <a href="#infographic" class="hero-cta"><span class="dot"></span> Explore the Mission</a>
+    <div class="hero-telemetry">
+      <span><b>FORM FACTOR</b> 2U · 10×10×20cm</span>
+      <span><b>ORBIT</b> LEO</span>
+      <span><b>PAYLOAD</b> AI Nav + Data Relay</span>
+      <span><b>STATUS</b> <span style="color:#7ee0a8">In Development</span></span>
+    </div>
+    <div class="scroll-cue"></div>
+  </div>
+</section>
+
+<!-- ============================================================
+     INFOGRAPHIC
+     ============================================================ -->
+<section id="infographic">
+  <div class="wrap">
+    <div class="eyebrow reveal">Sec. 01 — Mission Overview</div>
+    <div class="section-head reveal">
+      <h2>Built to relay. Designed for discovery.</h2>
+      <p>SpartanSat is the communication and data relay hub for volcanic exploration missions across the solar system — powered by onboard AI for navigation and image compression.</p>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-image-wrap reveal">
+        <div class="info-frame-corner tl"></div>
+        <div class="info-frame-corner br"></div>
+        <img src="assets/spartansat-infographic.webp" alt="SpartanSat 2U CubeSat technical infographic showing S-band antenna, AI computing core, solar arrays, reaction wheel system, fiber optic gyroscope, software defined radio, and mission role diagram from surface nodes to Earth ground station">
+      </div>
+
+      <div class="glass-panel reveal">
+        <h3>Mission Overview</h3>
+        <div class="editable" contenteditable="true" data-placeholder="Write the final mission description here. This panel is editable directly on the page — team members with edit access can update mission text, specs, and framing without touching code."></div>
+        <div class="edit-hint">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          Editable by team — click to write
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="hairline"></div></div>
+
+<!-- ============================================================
+     MISSION STORY / FLOW
+     ============================================================ -->
+<section id="story">
+  <div class="wrap">
+    <div class="eyebrow reveal">Sec. 02 — Relay Architecture</div>
+    <div class="section-head reveal">
+      <h2>Surface to signal, in five hops.</h2>
+      <p>SpartanSat sits at the center of the mission's data chain — bridging ground-level exploration systems with Earth-based analysis.</p>
+    </div>
+
+    <div class="flow-track reveal">
+      <div class="flow-node">
+        <div class="flow-card">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="2.5"/><circle cx="4" cy="6" r="1.6"/><circle cx="20" cy="6" r="1.6"/><circle cx="4" cy="18" r="1.6"/><circle cx="20" cy="18" r="1.6"/><path d="M6 7l4.5 3.5M18 7l-4.5 3.5M6 17l4.5-3.5M18 17l-4.5-3.5"/></svg></div>
+          <h4>Surface Nodes</h4>
+          <p>Ixtli Tlahtol ground network collects distributed environmental &amp; geological data.</p>
+        </div>
+        <div class="label">01 · Collection</div>
+      </div>
+      <div class="flow-connector">
+        <svg viewBox="0 0 46 14"><line class="arrow-line" x1="0" y1="7" x2="40" y2="7" stroke="currentColor" stroke-width="1.5"/><path d="M35 2 L42 7 L35 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      </div>
+      <div class="flow-node">
+        <div class="flow-card">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2v6M12 22v-4M4.9 4.9l4.2 4.2M19.1 19.1l-2.5-2.5"/><circle cx="12" cy="12" r="3"/><path d="M2 12h4M18 12h4"/></svg></div>
+          <h4>ARES UAV</h4>
+          <p>Quadrotor helicopter aggregates node data and relays it upward.</p>
+        </div>
+        <div class="label">02 · Aggregation</div>
+      </div>
+      <div class="flow-connector">
+        <svg viewBox="0 0 46 14"><line class="arrow-line" x1="0" y1="7" x2="40" y2="7" stroke="currentColor" stroke-width="1.5"/><path d="M35 2 L42 7 L35 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      </div>
+      <div class="flow-node">
+        <div class="flow-card" style="border-color:rgba(201,162,77,0.45);">
+          <div class="icon" style="border-color:var(--gold-dim); color:var(--gold-bright); box-shadow:0 0 20px -4px rgba(201,162,77,0.4) inset;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/></svg></div>
+          <h4>SpartanSat</h4>
+          <p>Relay &amp; data hub — onboard AI compresses and routes data to Earth.</p>
+        </div>
+        <div class="label" style="color:var(--gold-bright);">03 · Relay Hub</div>
+      </div>
+      <div class="flow-connector">
+        <svg viewBox="0 0 46 14"><line class="arrow-line" x1="0" y1="7" x2="40" y2="7" stroke="currentColor" stroke-width="1.5"/><path d="M35 2 L42 7 L35 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      </div>
+      <div class="flow-node">
+        <div class="flow-card">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12a8 8 0 0 1 16 0"/><path d="M2 12h2M20 12h2M12 2v2"/><circle cx="12" cy="12" r="1.4"/><path d="M12 12l4-4"/></svg></div>
+          <h4>Ground Station</h4>
+          <p>Earth-based S-band reception captures the downlinked data stream.</p>
+        </div>
+        <div class="label">04 · Reception</div>
+      </div>
+      <div class="flow-connector">
+        <svg viewBox="0 0 46 14"><line class="arrow-line" x1="0" y1="7" x2="40" y2="7" stroke="currentColor" stroke-width="1.5"/><path d="M35 2 L42 7 L35 12" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      </div>
+      <div class="flow-node">
+        <div class="flow-card">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/><path d="M7 9l3 3 2-2 4 4"/></svg></div>
+          <h4>Data Analysis</h4>
+          <p>Insights and discovery — mission data becomes usable science.</p>
+        </div>
+        <div class="label">05 · Insight</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="hairline"></div></div>
+
+<!-- ============================================================
+     TEAM
+     ============================================================ -->
+<section id="team">
+  <div class="wrap">
+    <div class="eyebrow reveal">Sec. 03 — People</div>
+    <div class="section-head reveal">
+      <h2>Meet the SpartanSat team</h2>
+      <p>A student-led team from SJSU's Aerospace Engineering Department building the university's first fully student-developed CubeSat.</p>
+    </div>
+
+    <div class="team-grid reveal" id="teamGrid">
+      <!-- team cards injected by JS from a simple data array, so the team roster is easy to edit in one place -->
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="hairline"></div></div>
+
+<!-- ============================================================
+     ROADMAP
+     ============================================================ -->
+<section id="roadmap">
+  <div class="wrap">
+    <div class="eyebrow reveal">Sec. 04 — Project Roadmap</div>
+    <div class="section-head reveal">
+      <h2>Five phases to orbit</h2>
+      <p>From concept definition to deployment — each phase builds toward a flight-ready CubeSat.</p>
+    </div>
+
+    <div class="phase-list reveal" id="phaseList"></div>
+  </div>
+</section>
+
+<div class="wrap"><div class="hairline"></div></div>
+
+<!-- ============================================================
+     SYSTEMS
+     ============================================================ -->
+<section id="systems">
+  <div class="wrap">
+    <div class="eyebrow reveal">Sec. 05 — Onboard Systems</div>
+    <div class="section-head reveal">
+      <h2>Every subsystem, purpose-built</h2>
+      <p>Click any system to see how it works and what it contributes to the mission.</p>
+    </div>
+
+    <div class="sys-grid reveal" id="sysGrid"></div>
+  </div>
+</section>
+
+<!-- systems modal -->
+<div id="sys-modal">
+  <div class="backdrop" data-close-sys></div>
+  <div class="modal-box">
+    <button class="modal-close" data-close-sys aria-label="Close">×</button>
+    <div class="modal-icon" id="sysModalIcon"></div>
+    <h3 id="sysModalTitle"></h3>
+    <p id="sysModalDesc"></p>
+    <div id="sysModalSpecs"></div>
+  </div>
+</div>
+
+<div class="wrap"><div class="hairline"></div></div>
+
+<!-- ============================================================
+     UPDATES
+     ============================================================ -->
+<section id="updates">
+  <div class="wrap">
+    <div class="eyebrow reveal">Sec. 06 — Mission Updates</div>
+    <div class="section-head reveal">
+      <h2>Mission Updates</h2>
+      <p>Milestones, progress notes, and announcements from the SpartanSat team.</p>
+    </div>
+
+    <div class="updates-grid reveal">
+      <div class="update-card">
+        <div class="u-date">MM / DD / YYYY</div>
+        <h4 contenteditable="true">Update title goes here</h4>
+        <div class="u-body" contenteditable="true" data-placeholder="Describe the milestone, test result, or announcement here. Attach images or video separately when publishing."></div>
+        <span class="u-tag">Milestone</span>
+      </div>
+      <div class="update-card">
+        <div class="u-date">MM / DD / YYYY</div>
+        <h4 contenteditable="true">Update title goes here</h4>
+        <div class="u-body" contenteditable="true" data-placeholder="Describe the milestone, test result, or announcement here."></div>
+        <span class="u-tag">Progress</span>
+      </div>
+      <div class="update-card">
+        <div class="u-date">MM / DD / YYYY</div>
+        <h4 contenteditable="true">Update title goes here</h4>
+        <div class="u-body" contenteditable="true" data-placeholder="Describe the milestone, test result, or announcement here."></div>
+        <span class="u-tag">Announcement</span>
+      </div>
+      <button class="add-update" id="addUpdateBtn">+ Add Update</button>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="hairline"></div></div>
+
+<!-- ============================================================
+     CONTACT
+     ============================================================ -->
+<section id="contact">
+  <div class="wrap">
+    <div class="eyebrow reveal">Sec. 07 — Contact</div>
+    <div class="section-head reveal">
+      <h2>Contact Us</h2>
+    </div>
+
+    <div class="contact-grid reveal">
+      <div class="contact-info">
+        <div class="contact-field">
+          <span>Team Email</span>
+          <div class="editable" contenteditable="true" data-placeholder="Fill your email here"></div>
+        </div>
+
+        <div class="social-row">
+          <a href="#" aria-label="LinkedIn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.94 5a2 2 0 1 1-4-.002 2 2 0 0 1 4 .002zM7 8.48H3V21h4V8.48zm6.32 0H9.34V21h3.94v-6.57c0-3.66 4.77-4 4.77 0V21H22v-7.93c0-6.17-7.06-5.94-8.68-2.91V8.48z"/></svg></a>
+          <a href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg></a>
+          <a href="#" aria-label="YouTube"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2.5" y="5.5" width="19" height="13" rx="3"/><path d="M10.5 9.5l5 2.5-5 2.5v-5z" fill="currentColor" stroke="none"/></svg></a>
+        </div>
+      </div>
+
+      <form class="contact-form" id="contactForm">
+        <div class="form-row">
+          <label for="cf-name">Name</label>
+          <input id="cf-name" type="text" placeholder="Your name" required>
+        </div>
+        <div class="form-row">
+          <label for="cf-email">Email</label>
+          <input id="cf-email" type="email" placeholder="you@domain.com" required>
+        </div>
+        <div class="form-row">
+          <label for="cf-msg">Message</label>
+          <textarea id="cf-msg" placeholder="Tell us about your interest, question, or proposal..." required></textarea>
+        </div>
+        <button type="submit" class="form-submit">Send Message</button>
+        <div class="form-note">This form is a front-end template — connect it to an email service (e.g. Formspree) to receive messages.</div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap footer-inner">
+    <div class="f-left">© <span id="year"></span> SpartanSat — SJSU Aerospace Engineering, in partnership with NASA Ames Research Center's TechEdSat program. All rights reserved.</div>
+    <div class="f-right"><a href="#hero">Back to top ↑</a> &nbsp;·&nbsp; <a href="admin/index.html">Team Login</a></div>
+  </div>
+</footer>
+
+<script>
+/* ============================================================
+   YEAR
+   ============================================================ */
+document.getElementById('year').textContent = new Date().getFullYear();
+
+/* ============================================================
+   NAV SCROLL + MOBILE TOGGLE
+   ============================================================ */
+const siteNav = document.getElementById('site-nav');
+window.addEventListener('scroll', () => {
+  siteNav.classList.toggle('scrolled', window.scrollY > 40);
+}, {passive:true});
+
+const navToggle = document.getElementById('navToggle');
+const navLinks = document.getElementById('navLinks');
+navToggle.addEventListener('click', () => {
+  const open = navLinks.classList.toggle('open');
+  navToggle.setAttribute('aria-expanded', open);
+});
+navLinks.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
+  navLinks.classList.remove('open');
+  navToggle.setAttribute('aria-expanded', false);
+}));
+
+/* ============================================================
+   SCROLL REVEAL
+   ============================================================ */
+const revealEls = document.querySelectorAll('.reveal');
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('in');
+      revealObserver.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.12 });
+revealEls.forEach(el => revealObserver.observe(el));
+
+/* ============================================================
+   STARFIELD CANVAS
+   ============================================================ */
+(function starfield(){
+  // Multi-depth star field: three parallax layers drift continuously and
+  // wrap seamlessly at the edges, so the whole scene reads as a slow,
+  // looping space pan rather than a static image.
+  const canvas = document.getElementById('stars-canvas');
+  const ctx = canvas.getContext('2d');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let w, h, layers = [];
+
+  const LAYER_DEFS = [
+    { count: 90,  rRange:[0.3,0.9], driftX: 0.006, driftY: 0.002, alphaRange:[0.15,0.45], goldChance:0.04, blueChance:0.05 }, // far
+    { count: 90,  rRange:[0.6,1.3], driftX: 0.014, driftY: 0.004, alphaRange:[0.25,0.6],  goldChance:0.06, blueChance:0.07 }, // mid
+    { count: 60,  rRange:[1.0,1.9], driftX: 0.026, driftY: 0.007, alphaRange:[0.35,0.85], goldChance:0.09, blueChance:0.08 }, // near
+  ];
+
+  function resize(){
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
+  function init(){
+    resize();
+    layers = LAYER_DEFS.map(def => ({
+      def,
+      stars: Array.from({length: def.count}, () => {
+        const roll = Math.random();
+        return {
+          x: Math.random()*w,
+          y: Math.random()*h,
+          r: Math.random()*(def.rRange[1]-def.rRange[0]) + def.rRange[0],
+          baseAlpha: Math.random()*(def.alphaRange[1]-def.alphaRange[0]) + def.alphaRange[0],
+          twinkleSpeed: Math.random()*0.015 + 0.004,
+          phase: Math.random()*Math.PI*2,
+          color: roll < def.goldChance ? 'gold' : (roll < def.goldChance + def.blueChance ? 'blue' : 'white')
+        };
+      })
+    }));
+  }
+  let t = 0;
+  function draw(){
+    t += 1;
+    ctx.clearRect(0,0,w,h);
+    for(const layer of layers){
+      const {driftX, driftY} = layer.def;
+      for(const s of layer.stars){
+        if(!reduced){
+          s.x += driftX;
+          s.y += driftY;
+          if(s.x > w + 4) s.x = -4;
+          if(s.x < -4) s.x = w + 4;
+          if(s.y > h + 4) s.y = -4;
+          if(s.y < -4) s.y = h + 4;
+        }
+        const alpha = reduced ? s.baseAlpha : s.baseAlpha + Math.sin(t*s.twinkleSpeed + s.phase)*0.22;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+        ctx.fillStyle = s.color === 'gold'
+          ? `rgba(240,199,102,${Math.max(0,alpha)})`
+          : s.color === 'blue'
+          ? `rgba(140,200,255,${Math.max(0,alpha)})`
+          : `rgba(255,255,255,${Math.max(0,alpha)})`;
+        ctx.fill();
+      }
+    }
+    if(!reduced) requestAnimationFrame(draw);
+  }
+  window.addEventListener('resize', resize, {passive:true});
+  init();
+  draw();
+})();
+
+(function heroShootingStars(){
+  // Local shooting-star layer confined to the hero photo, so streaks appear
+  // to move across the SpartanSat key art itself, looping continuously.
+  const canvas = document.getElementById('hero-shooting-canvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const hero = document.getElementById('hero');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let w, h;
+  function resize(){
+    w = canvas.width = hero.clientWidth;
+    h = canvas.height = hero.clientHeight;
+  }
+  window.addEventListener('resize', resize, {passive:true});
+  resize();
+  if(reduced) return;
+
+  let active = [];
+  function spawn(){
+    const startX = Math.random()*w*0.8 + w*0.05;
+    const startY = Math.random()*h*0.4;
+    const angle = Math.PI/5 + (Math.random()*0.35 - 0.17);
+    const speed = Math.random()*6 + 8;
+    active.push({
+      x:startX, y:startY,
+      vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+      life:0, maxLife: Math.random()*24 + 26,
+      len: Math.random()*60 + 55
+    });
+  }
+  function scheduleNext(){
+    const delay = Math.random()*3400 + 1800;
+    setTimeout(() => { spawn(); scheduleNext(); }, delay);
+  }
+  scheduleNext();
+
+  function draw(){
+    ctx.clearRect(0,0,w,h);
+    active = active.filter(s => s.life < s.maxLife);
+    for(const s of active){
+      s.life++;
+      s.x += s.vx; s.y += s.vy;
+      const progress = s.life / s.maxLife;
+      const fade = progress < 0.15 ? progress/0.15 : 1 - (progress-0.15)/0.85;
+      const tailX = s.x - s.vx*(s.len/10);
+      const tailY = s.y - s.vy*(s.len/10);
+      const grad = ctx.createLinearGradient(s.x, s.y, tailX, tailY);
+      grad.addColorStop(0, `rgba(255,255,255,${0.95*fade})`);
+      grad.addColorStop(0.4, `rgba(210,225,255,${0.5*fade})`);
+      grad.addColorStop(1, 'rgba(210,225,255,0)');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 1.7;
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y);
+      ctx.lineTo(tailX, tailY);
+      ctx.stroke();
+    }
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+
+(function shootingStars(){
+  // Occasional shooting stars streak across the field on a loose interval —
+  // ambient motion that reinforces the "live space feed" feel.
+  const canvas = document.getElementById('shooting-canvas');
+  const ctx = canvas.getContext('2d');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduced) return;
+  let w, h;
+  function resize(){ w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
+  window.addEventListener('resize', resize, {passive:true});
+  resize();
+
+  let active = [];
+  function spawn(){
+    const startX = Math.random()*w*0.7 + w*0.15;
+    const startY = Math.random()*h*0.35;
+    const angle = Math.PI/4 + (Math.random()*0.3 - 0.15);
+    const speed = Math.random()*7 + 9;
+    active.push({
+      x:startX, y:startY,
+      vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+      life:0, maxLife: Math.random()*22 + 26,
+      len: Math.random()*70 + 60
+    });
+  }
+  function scheduleNext(){
+    const delay = Math.random()*4200 + 2600;
+    setTimeout(() => { spawn(); scheduleNext(); }, delay);
+  }
+  scheduleNext();
+
+  function draw(){
+    ctx.clearRect(0,0,w,h);
+    active = active.filter(s => s.life < s.maxLife);
+    for(const s of active){
+      s.life++;
+      s.x += s.vx; s.y += s.vy;
+      const progress = s.life / s.maxLife;
+      const fade = progress < 0.15 ? progress/0.15 : 1 - (progress-0.15)/0.85;
+      const tailX = s.x - s.vx*(s.len/10);
+      const tailY = s.y - s.vy*(s.len/10);
+      const grad = ctx.createLinearGradient(s.x, s.y, tailX, tailY);
+      grad.addColorStop(0, `rgba(255,255,255,${0.9*fade})`);
+      grad.addColorStop(0.4, `rgba(200,220,255,${0.45*fade})`);
+      grad.addColorStop(1, 'rgba(200,220,255,0)');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y);
+      ctx.lineTo(tailX, tailY);
+      ctx.stroke();
+    }
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+
+/* ============================================================
+   TEAM DATA — edit this array to update the roster
+   ============================================================ */
+const teamData = [
+  { initials:'AG', name:'Team Lead Name', role:'Project / Systems Lead', bio:'Short bio placeholder — add background and focus area.', contrib:'Contribution placeholder — describe ownership on SpartanSat.' },
+  { initials:'CS', name:'Team Member Name', role:'Communications & RF', bio:'Short bio placeholder — add background and focus area.', contrib:'Contribution placeholder — describe ownership on SpartanSat.' },
+  { initials:'PW', name:'Team Member Name', role:'Power & Avionics', bio:'Short bio placeholder — add background and focus area.', contrib:'Contribution placeholder — describe ownership on SpartanSat.' },
+  { initials:'AI', name:'Team Member Name', role:'AI & Onboard Computing', bio:'Short bio placeholder — add background and focus area.', contrib:'Contribution placeholder — describe ownership on SpartanSat.' },
+  { initials:'ST', name:'Team Member Name', role:'Structures & Thermal', bio:'Short bio placeholder — add background and focus area.', contrib:'Contribution placeholder — describe ownership on SpartanSat.' },
+  { initials:'GN', name:'Team Member Name', role:'GNC & Attitude Control', bio:'Short bio placeholder — add background and focus area.', contrib:'Contribution placeholder — describe ownership on SpartanSat.' },
+  { initials:'QA', name:'Team Member Name', role:'Quality & Safety', bio:'Short bio placeholder — add background and focus area.', contrib:'Contribution placeholder — describe ownership on SpartanSat.' },
+  { initials:'FA', name:'Faculty Advisor Name', role:'Faculty Advisor', bio:'Short bio placeholder — add background and focus area.', contrib:'Contribution placeholder — describe advisory role.' },
+];
+
+const teamGrid = document.getElementById('teamGrid');
+teamData.forEach((m) => {
+  const card = document.createElement('div');
+  card.className = 'team-card';
+  card.innerHTML = `
+    <span class="expand-cue">+</span>
+    <div class="team-avatar">${m.initials}</div>
+    <h4 contenteditable="true">${m.name}</h4>
+    <div class="role" contenteditable="true">${m.role}</div>
+    <div class="bio" contenteditable="true">${m.bio}</div>
+    <div class="team-more">
+      <div class="contrib-label">Contribution</div>
+      <p contenteditable="true">${m.contrib}</p>
+      <div class="team-links">
+        <a href="#" onclick="event.stopPropagation()">LinkedIn</a>
+        <a href="#" onclick="event.stopPropagation()">Email</a>
+      </div>
+    </div>
+  `;
+  card.addEventListener('click', (e) => {
+    if (e.target.closest('[contenteditable]') && document.activeElement === e.target) return;
+    card.classList.toggle('open');
+    card.querySelector('.expand-cue').textContent = card.classList.contains('open') ? '×' : '+';
+  });
+  teamGrid.appendChild(card);
+});
+
+/* ============================================================
+   ROADMAP DATA
+   ============================================================ */
+const phaseData = [
+  {
+    num:'0.0', title:'Concept & Mission Definition', status:'done',
+    purpose:'Define the mission role of SpartanSat within the broader volcanic exploration architecture, alongside Ixtli Tlahtol surface nodes and the ARES UAV.',
+    systems:['Mission concept of operations (ConOps)','Requirements & success criteria','Work breakdown structure'],
+    progress:'Mission objectives, success criteria, and system architecture defined in coordination with SJSU Aerospace Engineering.',
+    goals:'Lock mission requirements ahead of detailed subsystem design.'
+  },
+  {
+    num:'1.0', title:'CubeSat Architecture', status:'done',
+    purpose:'Establish the physical and electrical architecture of the 2U CubeSat bus, drawing on SJSU\'s TechEdSat flight heritage.',
+    systems:['2U CubeSat bus (10×10×20cm)','Power, data & wiring block diagrams','Structures & thermal design'],
+    progress:'Bus architecture and block diagrams in place; structural design informed by prior TES-series missions.',
+    goals:'Finalize flight structure and subsystem interfaces.'
+  },
+  {
+    num:'2.0', title:'Communication & Data Relay', status:'active',
+    purpose:'Build the S-band relay link and software-defined radio system that make SpartanSat the mission\'s data hub.',
+    systems:['S-band antenna (TX/RX)','Software Defined Radio (SDR)','Ground station link'],
+    progress:'SDR architecture in development; S-band link design underway with ground station coordination.',
+    goals:'Demonstrate reliable relay from ARES UAV / surface nodes to Earth.'
+  },
+  {
+    num:'3.0', title:'AI / Onboard Computing', status:'active',
+    purpose:'Implement the onboard AI computing core for autonomous navigation, obstacle avoidance, and real-time image compression.',
+    systems:['NVIDIA Jetson TX2 compute core','Onboard AI navigation','Real-time image compression pipeline'],
+    progress:'AI compute platform selected and integration with data handling subsystem in progress.',
+    goals:'Validate onboard AI performance against mission data-rate constraints.'
+  },
+  {
+    num:'4.0', title:'Testing, Deployment & Future Exploration', status:'upcoming',
+    purpose:'Qualify SpartanSat for flight and prepare for deployment, extending toward future exploration missions.',
+    systems:['Environmental & vibration testing','Thermal vacuum testing','ISS deployment integration'],
+    progress:'Test plan defined; qualification campaign to follow subsystem integration.',
+    goals:'Achieve flight readiness and successful on-orbit relay demonstration.'
+  },
+];
+
+const phaseList = document.getElementById('phaseList');
+const statusLabel = { done:'Complete', active:'In Progress', upcoming:'Upcoming' };
+phaseData.forEach((p) => {
+  const card = document.createElement('div');
+  card.className = 'phase-card';
+  card.innerHTML = `
+    <div class="phase-head">
+      <div class="phase-num">PH ${p.num}</div>
+      <h4>${p.title}</h4>
+      <div class="phase-status ${p.status}">${statusLabel[p.status]}</div>
+      <div class="phase-chevron">▾</div>
+    </div>
+    <div class="phase-body">
+      <div class="phase-body-inner">
+        <div class="col"><span>Purpose</span><p>${p.purpose}</p></div>
+        <div class="col"><span>Key Systems</span><ul>${p.systems.map(s=>`<li>${s}</li>`).join('')}</ul></div>
+        <div class="col"><span>Progress &amp; Goals</span><p>${p.progress}</p><p style="margin-top:8px;color:var(--grey-dim)">${p.goals}</p></div>
+      </div>
+    </div>
+  `;
+  card.querySelector('.phase-head').addEventListener('click', () => {
+    card.classList.toggle('open');
+  });
+  phaseList.appendChild(card);
+});
+
+/* ============================================================
+   SYSTEMS DATA
+   ============================================================ */
+const iconLib = {
+  ai:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/><circle cx="12" cy="12" r="2.2"/></svg>',
+  comm:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12a8 8 0 0 1 16 0"/><path d="M7 12a5 5 0 0 1 10 0"/><circle cx="12" cy="12" r="1.6"/></svg>',
+  solar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="7" width="7" height="10"/><rect x="15" y="7" width="7" height="10"/><rect x="10" y="9" width="4" height="6"/></svg>',
+  wheel:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"/><path d="M12 4v4M12 16v4M4 12h4M16 12h4"/></svg>',
+  gyro:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><ellipse cx="12" cy="12" rx="9" ry="4.5"/><ellipse cx="12" cy="12" rx="4.5" ry="9"/></svg>',
+  sdr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>',
+  bus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16M9 4v16"/></svg>',
+  data:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6a8 3 0 0 0 16 0 8 3 0 0 0-16 0Z"/><path d="M4 6v6a8 3 0 0 0 16 0V6M4 12v6a8 3 0 0 0 16 0v-6"/></svg>',
+  ground:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 20a8 8 0 0 1 16 0"/><circle cx="12" cy="20" r="1.4"/><path d="M12 20V4M8 8l4-4 4 4"/></svg>'
+};
+
+const sysData = [
+  { key:'ai', name:'AI Computing Core', teaser:'NVIDIA Jetson TX2 onboard processor.', desc:'The AI Computing Core runs on an NVIDIA Jetson TX2, enabling onboard AI processing for autonomous navigation, obstacle avoidance, and real-time image compression — reducing the volume of data that needs to be relayed to Earth.', specs:[['Processor','NVIDIA Jetson TX2'],['Function','Nav · Compression · Decision-making'],['Phase','3.0 — AI / Onboard Computing']] },
+  { key:'comm', name:'Communication Relay', teaser:'Receives from ARES UAV & surface nodes.', desc:'The Communication Relay subsystem receives data from the ARES UAV and Ixtli Tlahtol surface nodes, then forwards it to Earth — making SpartanSat the mission\'s central data hub.', specs:[['Link','S-band (TX/RX)'],['Data Rate','Up to 10 Mbps'],['Phase','2.0 — Communication & Data Relay']] },
+  { key:'solar', name:'Solar Arrays', teaser:'Deployable high-efficiency panels.', desc:'High-efficiency deployable solar cells provide maximum power generation across the mission lifetime, feeding the CubeSat\'s power bus and battery system.', specs:[['Power','~20 W (EOL)'],['Storage','Li-ion batteries'],['Phase','1.0 — CubeSat Architecture']] },
+  { key:'wheel', name:'Reaction Wheel System', teaser:'3-axis precision attitude control.', desc:'Three-axis reaction wheels provide precision attitude control for stable pointing and agile maneuvers, working alongside magnetorquers for full attitude management.', specs:[['Config','3 reaction wheels + magnetorquers'],['Function','Stable pointing & maneuvers'],['Phase','1.0 — CubeSat Architecture']] },
+  { key:'gyro', name:'Gyroscope / Attitude Sensing', teaser:'Fiber optic gyroscope (FOG).', desc:'A high-precision Fiber Optic Gyroscope provides accurate attitude and rate sensing for reliable navigation and stability — critical for pointing the relay antenna and payload sensors.', specs:[['Type','Fiber Optic Gyroscope'],['Function','Attitude & rate sensing'],['Phase','1.0 — CubeSat Architecture']] },
+  { key:'sdr', name:'Software Defined Radio', teaser:'Flexible, reconfigurable comms.', desc:'The Software Defined Radio enables flexible, reconfigurable communication, allowing the team to adapt links and deploy future protocol updates without new hardware.', specs:[['Basis','SDR (ETTUS-class platform)'],['Benefit','Adaptable links, future-proof'],['Phase','2.0 — Communication & Data Relay']] },
+  { key:'bus', name:'CubeSat Bus', teaser:'Standard 2U form factor.', desc:'The standard 2U CubeSat bus (10 × 10 × 20 cm) was built for reliability, modularity, and rapid integration — following flight-proven design practices from SJSU\'s TechEdSat heritage.', specs:[['Form Factor','2U CubeSat'],['Dimensions','10 × 10 × 20 cm'],['Mass','~2.5 kg']] },
+  { key:'data', name:'Data Handling', teaser:'AI compression & data management.', desc:'The Data Handling subsystem manages onboard storage, prioritization, and AI-driven image compression before relay — maximizing science return within link bandwidth limits.', specs:[['Function','AI image compression'],['Role','Data management & prioritization'],['Phase','3.0 — AI / Onboard Computing']] },
+  { key:'ground', name:'Ground Station Link', teaser:'Earth-based S-band reception.', desc:'The Ground Station Link closes the loop, receiving SpartanSat\'s downlinked telemetry and mission data on Earth for processing and analysis.', specs:[['Link','S-band downlink'],['Design Life','3+ years'],['Phase','4.0 — Testing & Deployment']] },
+];
+
+const sysGrid = document.getElementById('sysGrid');
+sysData.forEach((s) => {
+  const card = document.createElement('div');
+  card.className = 'sys-card';
+  card.innerHTML = `
+    <div class="sys-icon">${iconLib[s.key]}</div>
+    <h4>${s.name}</h4>
+    <div class="teaser">${s.teaser}</div>
+  `;
+  card.addEventListener('click', () => openSysModal(s));
+  sysGrid.appendChild(card);
+});
+
+const sysModal = document.getElementById('sys-modal');
+function openSysModal(s){
+  document.getElementById('sysModalIcon').innerHTML = iconLib[s.key];
+  document.getElementById('sysModalTitle').textContent = s.name;
+  document.getElementById('sysModalDesc').textContent = s.desc;
+  document.getElementById('sysModalSpecs').innerHTML = s.specs.map(
+    ([k,v]) => `<div class="spec-row"><span>${k}</span><span>${v}</span></div>`
+  ).join('');
+  sysModal.classList.add('open');
+}
+sysModal.querySelectorAll('[data-close-sys]').forEach(el => el.addEventListener('click', () => sysModal.classList.remove('open')));
+
+/* ============================================================
+   ESC CLOSES MODALS
+   ============================================================ */
+window.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape'){
+    sysModal.classList.remove('open');
+  }
+});
+
+/* ============================================================
+   ADD UPDATE (simple client-side demo)
+   ============================================================ */
+document.getElementById('addUpdateBtn').addEventListener('click', function(){
+  const grid = this.parentElement;
+  const card = document.createElement('div');
+  card.className = 'update-card';
+  card.innerHTML = `
+    <div class="u-date">${new Date().toLocaleDateString()}</div>
+    <h4 contenteditable="true">New update title</h4>
+    <div class="u-body" contenteditable="true" data-placeholder="Write the update here..."></div>
+    <span class="u-tag" contenteditable="true">Tag</span>
+  `;
+  grid.insertBefore(card, this);
+});
+
+/* ============================================================
+   CONTACT FORM (demo — replace action with real endpoint)
+   ============================================================ */
+document.getElementById('contactForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  alert('This is a front-end template. Connect this form to an email service (e.g. Formspree, Netlify Forms) to receive real submissions.');
+  this.reset();
+});
+/* ============================================================
+   FAST ANCHOR SCROLL (~350ms instead of the browser's slow default)
+   ============================================================ */
+(function(){
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function fastScrollTo(targetY){
+    if(reduced){ window.scrollTo(0, targetY); return; }
+    const startY = window.scrollY, dist = targetY - startY, dur = 350;
+    let t0 = null;
+    function step(ts){
+      if(t0 === null) t0 = ts;
+      const p = Math.min((ts - t0) / dur, 1);
+      const e = 1 - Math.pow(1 - p, 3);
+      window.scrollTo(0, startY + dist * e);
+      if(p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const id = a.getAttribute('href');
+      if(id.length < 2) return;
+      const el = document.querySelector(id);
+      if(!el) return;
+      e.preventDefault();
+      const navH = id === '#hero' ? 0 : 64;
+      fastScrollTo(el.getBoundingClientRect().top + window.scrollY - navH);
+    });
+  });
+})();
+</script>
+</body>
+</html>
